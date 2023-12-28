@@ -1,66 +1,135 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 
- <head>
-　<!-- Firebaseライブラリを読み込む バージョンは2.3.2という古いのを使っています -->
-  <script src="https://cdn.firebase.com/js/client/2.3.2/firebase.js"></script>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSS only -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
+    <title>simaneko chat</title>
+</head>
 
-  <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
-  <script src="chat.js"></script>
+<body>
+    <main>
+        <div class="container py-5">
+            <div class="text-center">
+                <button id="login-btn" class="btn btn-primary d-none">
+                    login with goole
+                </button>
+            </div>
+            <div id="chat-container" class="my-3 d-none" style="height: 75vh;">
+                <div id="chat-area" class=" bg-light rounded border p-3 h-100" style="overflow-x: auto"></div>
+                <div class="row mt-4">
+                    <div class="message-input-wrapper col-10">
+                        <input id="message" type="text" id="" placeholder="メッセージを入力してください。"
+                            class="form-control form-control-lg">
+                    </div>
+                    <div class="col-2">
+                        <button id="send-message-btn" class="btn btn-primary btn-lg w-100">
+                            送信
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-5">
+                    <button id="sign-out-btn" class="btn btn-danger btn-lg">サインアウト</button>
+                </div>
+            </div>
+        </div>
+    </main>
 
-  <!-- ↓ 先ほど入手したコード　↓ -->
-  <script src="https://www.gstatic.com/firebasejs/3.7.8/firebase-app.js"></script>
-  <script>
-      // Initialize Firebase
-      var config = {
-        apiKey: "AIzaSyARglupzC_I0UHOmouN1QTi1cU8BYarRPo",
-        authDomain: "simaneko-1.firebaseapp.com",
-        storageBucket: "simaneko-1.appspot.com",
-        messagingSenderId: "30765939326"
-      };
-      firebase.initializeApp(config);
-  </script>
-  <!-- ↑ 先ほど入手したコード ↑ -->
 
-  <!-- ↓ 少ないのでcssベタ張り ↓ -->
-  <style>
-    ul > li:first-child {
-     color: black;
-     font-size: 25px;
-    }
-    ul > li:nth-child(2n) {
-     color: blue;
-    }
-    ul > li:nth-child(2n):before {
-     content:"ユーザー名："
-    }
-  </style>
-  <!-- ↑ 少ないのでcssベタ張り ↑ -->
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.5/firebase-firestore.js"></script>
 
- </head>
+    <script type="module">
 
- <body>
 
-  <div>
-   <!-- 投稿者 -->
-   <div>
-    <p>ユーザ名</p>
-    <textarea name="" id="jsi-name" cols="10" rows="1"></textarea>
-   </div>
+        // -----------------------------------------------
+        // firebase から自分のアプリの情報をコピペしてお使いください。
+        var firebaseConfig = {
+            apiKey: "AIzaSyBVcCNIxvGN523hRSQvT8awxWwVeM00Sxg",
+            authDomain: "sima-cha-t.firebaseapp.com",
+            projectId: "sima-cha-t",
+            storageBucket: "sima-cha-t.appspot.com",
+            messagingSenderId: "836273619165",
+            appId: "1:836273619165:web:a935ea08828200b2c1db34"
+        };
+        // -----------------------------------------------
 
-   <!-- メッセージを打ち込む部分 -->
-   <div>
-    <p>内容</p>
-    <textarea name="" id="jsi-msg" cols="30" rows="4"></textarea>
-   </div>
-  </div>
 
-  <!-- メッセージを送る部分 -->
-  <button name="button" id="jsi-button">send message!</button>
+        if (firebase.apps.length == 0) {
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+        }
 
-  <!-- チャット内容が動的に生成される部分 -->
-  <ul id="jsi-board" style="list-style:none;">
-    <li>〜チャット内容〜</li>
-  </ul>
- </body>
+
+        window.onload = () => {
+
+            const login_btn = document.querySelector('#login-btn');
+            const chat_container = document.querySelector('#chat-container')
+            const sign_out_btn = document.querySelector('#sign-out-btn')
+            const chat_area = document.querySelector('#chat-area')
+            const send_message_btn = document.querySelector('#send-message-btn')
+            const message = document.querySelector('#message')
+            const db = firebase.firestore();
+            const room = db.collection('room');
+
+            login_btn.addEventListener('click', () => {
+                const google_provider = new firebase.auth.GoogleAuthProvider()
+                firebase.auth().signInWithPopup(google_provider).then(result => {
+                    window.user = result.user;
+                }).catch(err => alert(err.message));
+            })
+
+            firebase.auth().onAuthStateChanged(function (user) {
+                if (user) {
+                    login_btn.classList.add('d-none');
+                    chat_container.classList.remove('d-none');
+                    window.user = user;
+                } else {
+                    login_btn.classList.remove('d-none');
+                    chat_container.classList.add('d-none');
+                }
+            });
+
+            room.orderBy('created_at', 'asc').onSnapshot((doc) => {
+                let messages = '';
+                doc.docs.forEach(doc => {
+                    const data = doc.data();
+                    messages = messages + `
+                        <div class="user-message col-6 mr-auto mb-4">
+                            <h6 class="user-name">${data.user_name}</h6>
+                            <div class="message p-3 rounded shadow-sm bg-white">${data.message}</div>
+                            <p class="timestamp"><small>${data.created_at}</small></p>
+                        </div>
+                    `;
+                })
+
+                chat_area.innerHTML = messages;
+
+            });
+
+            sign_out_btn.addEventListener('click', () => {
+                firebase.auth().signOut().catch(err => alert(err.message));
+            })
+
+            send_message_btn.addEventListener('click', () => {
+                console.log();
+                room.add({
+                    user_name: window.user.email,
+                    message: message.value,
+                    created_at: firebase.firestore.Timestamp.now()
+                }).then(() => message.value = '').catch(err => alert(err.message));
+            })
+
+        }
+
+
+    </script>
+
+</body>
+
 </html>
